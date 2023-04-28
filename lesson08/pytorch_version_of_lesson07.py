@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch import optim
+import torch.onnx
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import dataset
@@ -14,14 +15,9 @@ class NeuralNetwork(nn.Module):
             nn.Linear(2, 1),
             nn.Sigmoid()
         )
-        # self.linear = nn.Linear(2, 1)
-        # self.activation = nn.Sigmoid()
 
     def forward(self, x):
         return self.sequntial(x)
-        # z = self.linear(x)
-        # a = self.activation(z)
-        # return a
 
 def train(X, y, model, loss_func, optimizer):
     model.train()
@@ -96,6 +92,8 @@ def main():
         test(X, y, model, loss_func, debug = (epoch % 50 == 0))
     
     show_scatter_surface_with_model(X.detach().numpy(), y.detach().numpy(), model)
+
+    torch.onnx.export(model, args=(X,), f="model.onnx")
 
     print("Done. Bye.")
     return 0
