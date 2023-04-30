@@ -8,6 +8,12 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import dataset
 
+device = (
+    "cuda" if torch.cuda.is_available()
+    else "mps" if torch.backends.mps.is_available()
+    else "cpu"
+)
+
 class NeuralNetwork(nn.Module):
     def __init__(self):
         super().__init__()
@@ -41,40 +47,36 @@ def test(X, y, model, loss_func, debug: bool = False):
     if debug:
         print(f"Test set: average loss: {test_loss:.4f}, accuracy: {correct:.1%}")
 
-def show_scatter_surface_with_model(X,Y,model):
-    x = X[:,0]
-    z = X[:,1]
-    y = Y
+def show_scatter_surface_with_model(X, Y, model):
+    x = X.detach().cpu().numpy()[:,0]
+    z = X.detach().cpu().numpy()[:,1]
+    y = Y.detach().cpu().numpy()
 
     fig = plt.figure()
     ax = Axes3D(fig, auto_add_to_figure=False)
     fig.add_axes(ax)
     ax.scatter(x, z, y)
 
-    x = np.arange(np.min(x),np.max(x),0.1)
-    z = np.arange(np.min(z),np.max(z),0.1)
-    x,z = np.meshgrid(x,z)
+    x = np.arange(np.min(x), np.max(x), 0.1)
+    z = np.arange(np.min(z), np.max(z), 0.1)
+    x, z = np.meshgrid(x, z)
 
-    X = np.column_stack((x[0],z[0]))
+    xs = np.column_stack((x[0], z[0]))
 
     for j in range(z.shape[0]):
         if j == 0:
             continue
-        X = np.vstack((X,np.column_stack((x[0],z[j]))))
+        xs = np.vstack((xs, np.column_stack((x[0], z[j]))))
 
     model.eval()
-    y = model(torch.from_numpy(X).float())
-    y = y.detach().numpy()
-    y = y.reshape(x.shape[0],z.shape[1])
+    y = model(torch.from_numpy(xs).to(device).float())
+    y = y.detach().cpu().numpy()
+    y = y.reshape(x.shape[0], z.shape[1])
     ax.plot_surface(x, z, y, cmap='rainbow')
     plt.show()
 
 def main():
-    device = (
-        "cuda" if torch.cuda.is_available()
-        else "mps" if torch.backends.mps.is_available()
-        else "cpu"
-    )
+    print(f"Using device: {device}")
 
     epochs = 1000
     dataset_size = 100
@@ -91,7 +93,7 @@ def main():
         train(X, y, model, loss_func, optimizer)
         test(X, y, model, loss_func, debug = (epoch % 50 == 0))
     
-    show_scatter_surface_with_model(X.detach().numpy(), y.detach().numpy(), model)
+    show_scatter_surface_with_model(X, y, model)
 
     torch.onnx.export(model, args=(X,), f="model.onnx")
 
